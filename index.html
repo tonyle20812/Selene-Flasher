@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32 Web Flasher</title>
-    <!-- Use Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom font */
@@ -75,18 +74,16 @@
             A simple and robust tool for flashing ESP32 firmware.
         </p>
 
-        <!-- Instructions for Bootloader Mode -->
         <div class="bg-gray-700 p-4 rounded-lg mb-6 text-sm text-gray-300">
             <h3 class="font-bold text-gray-100 mb-2">Instructions:</h3>
             <ol class="list-decimal list-inside space-y-1">
-                <li>**Step 1:** Connect your ESP32 board and put it into bootloader mode.</li>
+                <li>**Step 1:** Connect your ESP32 board and press and hold the **BOOT** button.</li>
                 <li>**Step 2:** Click the "Connect to Device" button.</li>
-                <li>**Step 3:** Select your firmware file below.</li>
-                <li>**Step 4:** Click the "Flash Firmware" button.</li>
+                <li>**Step 3:** The tool will attempt to connect. Once successful, you can release the **BOOT** button.</li>
+                <li>**Step 4:** Select your firmware file below and click the "Flash Firmware" button.</li>
             </ol>
         </div>
 
-        <!-- Connection and Control Buttons -->
         <div class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
             <button id="connect-button" 
                     class="w-full sm:w-auto btn-primary py-3 px-6 rounded-lg font-bold">
@@ -110,7 +107,6 @@
             </button>
         </div>
         
-        <!-- Progress Bar and Status -->
         <div class="mb-6">
             <div id="status-message" class="text-center text-sm font-semibold text-gray-400 mb-2">
                 Waiting for device connection...
@@ -120,18 +116,15 @@
             </div>
         </div>
 
-        <!-- Log Output Terminal -->
         <div class="terminal">
             <p>Welcome! Click "Connect to Device" to begin.</p>
         </div>
     </div>
     
-    <!-- Custom message box instead of alert() -->
     <div id="message-box" class="fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg bg-red-500 text-white transform scale-0 transition-transform duration-300 z-50">
         <p id="message-text">Error message here.</p>
     </div>
 
-    <!-- The core application script -->
     <script type="module">
         import { ESPLoader } from 'https://unpkg.com/esptool-js@0.5.6/bundle.js';
 
@@ -177,7 +170,7 @@
             // Show a temporary message box
             showMessage(text, type = 'error') {
                 this.messageText.textContent = text;
-                const newClass = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg bg-red-500 text-white transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+                const newClass = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
                 this.messageBox.className = newClass;
                 setTimeout(() => {
                     this.messageBox.className = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-0 transition-transform duration-300 z-50`;
