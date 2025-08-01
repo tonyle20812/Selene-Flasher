@@ -113,7 +113,8 @@
             
             let esploader = null;
             let file = null;
-            
+            let port = null; // Store the port object globally
+
             // Function to display messages in the terminal log
             const log = (message) => {
                 const p = document.createElement('p');
@@ -153,7 +154,10 @@
                     log('Attempting to connect to device...');
                     
                     // Request a serial port from the browser
-                    const port = await navigator.serial.requestPort();
+                    port = await navigator.serial.requestPort();
+                    
+                    // Open the port manually for more explicit control
+                    await port.open({ baudRate: 115200 });
                     
                     // Initialize ESPLoader with the port and logger functions
                     esploader = new ESPLoader(port, {
@@ -175,7 +179,15 @@
                 } catch (error) {
                     // If an error occurs during connection, we reset the esploader object
                     // and provide a clear error message.
+                    if (port && port.close) {
+                        try {
+                           await port.close();
+                        } catch (closeError) {
+                            log(`Failed to close port: ${closeError.message}`);
+                        }
+                    }
                     esploader = null;
+                    port = null;
                     updateUIForConnection(false);
                     log(`Connection failed: ${error.message}. Please ensure your device is in bootloader mode and the drivers are installed.`);
                     showMessage(`Connection failed: ${error.message}.`);
@@ -187,6 +199,7 @@
                 if (esploader) {
                     await esploader.disconnect();
                     esploader = null;
+                    port = null;
                     updateUIForConnection(false);
                 }
             });
