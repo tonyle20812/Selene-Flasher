@@ -50,6 +50,7 @@
             overflow: hidden;
             background-color: #1a1a1a;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease-in-out;
         }
 
         /* Sidebar styles */
@@ -84,6 +85,7 @@
         .sidebar-item:hover, .sidebar-item.active {
             background-color: #2b2b2b;
             color: #f3f4f6;
+            transform: translateX(5px);
         }
         
         /* Main content styles */
@@ -92,6 +94,7 @@
             flex-direction: column;
             padding: 2rem;
             gap: 1.5rem;
+            animation: fadeIn 0.5s ease-in-out;
         }
 
         .header {
@@ -106,23 +109,31 @@
             padding: 1.5rem;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             border: 1px solid #333;
+            transition: all 0.3s ease-in-out;
         }
-        
+
+        .card:hover {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            transform: translateY(-2px);
+        }
+
         .log-output {
             background-color: #0d0d0d;
             border: 1px solid #333;
-            height: 200px;
+            min-height: 150px;
             overflow-y: auto;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.85rem;
             white-space: pre-wrap;
             word-wrap: break-word;
             padding: 1rem;
+            flex-grow: 1;
         }
 
         .log-entry {
             color: #d1d5db;
             margin-bottom: 0.25rem;
+            animation: fadeIn 0.3s ease-in-out;
         }
 
         .log-success {
@@ -174,13 +185,6 @@
             display: none;
         }
 
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            text-align: center;
-        }
-        /* Adjusted grid for 4 items */
         .status-grid-4 {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -193,6 +197,8 @@
             border-radius: 0.5rem;
             background-color: #1a1a1a;
             border: 1px solid #2b2b2b;
+            transition: all 0.3s ease-in-out;
+            animation: fadeIn 0.5s ease-in-out;
         }
 
         .status-item p {
@@ -209,13 +215,32 @@
         }
         
         .status-missing {
-            color: #ef4444; /* Red color for MISSING */
+            color: #ef4444;
         }
 
         .status-ok {
-            color: #4ade80; /* Green color for OK */
+            color: #4ade80;
         }
 
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .status-pulse {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(76, 56, 203, 0.5);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 0 10px 5px rgba(76, 56, 203, 0.5);
+            }
+        }
     </style>
 </head>
 <body>
@@ -234,7 +259,7 @@
                 <span>Firmware Updater</span>
             </div>
             <div id="device-status-tab" class="sidebar-item">
-                <!-- SVG Icon for Serial Monitor (now Device Status) -->
+                <!-- SVG Icon for Device Status -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M14 6H10a2 2 0 00-2 2v8a2 2 0 002 2h4a2 2 0 002-2V8a2 2 0 00-2-2zm-2 10H10v-4h2v4zm4-4h-2v4h2v-4zM8 4a2 2 0 012-2h4a2 2 0 012 2v1h-8V4z"/>
                 </svg>
@@ -273,7 +298,7 @@
                     
                     <!-- Firmware Info -->
                     <div class="border-t border-b border-[#2b2b2b] py-4">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Firmware Version</label>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Firmware to Flash</label>
                         <div class="py-2 px-4 bg-[#0d0d0d] rounded-md text-sm font-mono text-gray-400">
                             firmware_v1.2.3.bin
                         </div>
@@ -322,22 +347,22 @@
                 </div>
 
                 <!-- Updated status grid with 4 items -->
-                <div class="card status-grid-4">
+                <div id="status-grid" class="card status-grid-4">
                     <div class="status-item">
                         <p>PSRAM</p>
-                        <h4 id="psram-status">--</h4>
+                        <h4 id="psram-status" class="text-gray-500">--</h4>
                     </div>
                     <div class="status-item">
                         <p>Storage</p>
-                        <h4 id="storage-status">--</h4>
+                        <h4 id="storage-status" class="text-gray-500">--</h4>
                     </div>
                     <div class="status-item">
                         <p>Screen (SPI)</p>
-                        <h4 id="screen-status">--</h4>
+                        <h4 id="screen-status" class="text-gray-500">--</h4>
                     </div>
                     <div class="status-item">
                         <p>Battery</p>
-                        <h4 id="battery-status">--</h4>
+                        <h4 id="battery-status" class="text-gray-500">--</h4>
                     </div>
                 </div>
 
@@ -365,18 +390,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- UI Elements ---
-            const deviceStatusEl = document.getElementById('device-status');
-            const deviceInfoEl = document.getElementById('device-info');
-            const progressBarEl = document.getElementById('progress-bar');
-            const progressStatusEl = document.getElementById('progress-status');
-            const progressPercentageEl = document.getElementById('progress-percentage');
-            const connectButtonEl = document.getElementById('connect-button');
-            const connectButtonTextEl = document.getElementById('connect-button-text');
-            const flashButtonEl = document.getElementById('flash-button');
-            const flashButtonTextEl = document.getElementById('flash-button-text');
-            const logOutputEl = document.getElementById('log-output');
-
+            // --- UI Element References ---
             const firmwareUpdaterTab = document.getElementById('firmware-updater-tab');
             const deviceStatusTab = document.getElementById('device-status-tab');
             const castingTab = document.getElementById('casting-tab');
@@ -385,34 +399,40 @@
             const deviceStatusPanel = document.getElementById('device-status-panel');
             const castingPanel = document.getElementById('casting-panel');
 
-            // Device Status Panel elements
+            const deviceStatusEl = document.getElementById('device-status');
+            const deviceInfoEl = document.getElementById('device-info');
+            const connectButtonEl = document.getElementById('connect-button');
+            const connectButtonTextEl = document.getElementById('connect-button-text');
+            const flashButtonEl = document.getElementById('flash-button');
+            const flashButtonTextEl = document.getElementById('flash-button-text');
+            const logOutputEl = document.getElementById('log-output');
+
             const deviceStatusConnectedEl = document.getElementById('device-status-connected');
             const psramStatusEl = document.getElementById('psram-status');
             const storageStatusEl = document.getElementById('storage-status');
             const screenStatusEl = document.getElementById('screen-status');
             const batteryStatusEl = document.getElementById('battery-status');
             const deviceFirmwareEl = document.getElementById('device-firmware');
-
+            const statusGridEl = document.getElementById('status-grid');
 
             // --- State Variables ---
             const FIRMWARE_FILE_NAME = 'firmware_v1.2.3.bin';
-            let isFlashing = false;
             let isConnected = false;
             let port = null;
+            let reader = null;
+            const textDecoder = new TextDecoder();
+            const textEncoder = new TextEncoder();
 
             // --- Sidebar Navigation ---
             const switchPanel = (panelToShow, tabToActivate) => {
-                // Hide all panels
                 firmwareUpdaterPanel.classList.add('hidden');
                 deviceStatusPanel.classList.add('hidden');
                 castingPanel.classList.add('hidden');
                 
-                // Deactivate all tabs
                 firmwareUpdaterTab.classList.remove('active');
                 deviceStatusTab.classList.remove('active');
                 castingTab.classList.remove('active');
                 
-                // Show the selected panel and activate the corresponding tab
                 panelToShow.classList.remove('hidden');
                 tabToActivate.classList.add('active');
             };
@@ -432,9 +452,86 @@
                 logOutputEl.scrollTop = logOutputEl.scrollHeight;
             };
 
+            // --- Send Command to Serial Port ---
+            const writeToSerial = async (command) => {
+                if (!port || !port.writable) {
+                    appendLog('[ERROR] Port not writable.', 'log-error');
+                    return;
+                }
+                const writer = port.writable.getWriter();
+                await writer.write(textEncoder.encode(command + '\r\n'));
+                writer.releaseLock();
+                appendLog(`[SENT] ${command}`);
+            };
+
+            // --- Read data from serial port ---
+            const readSerialLoop = async () => {
+                while (port && port.readable) {
+                    reader = port.readable.getReader();
+                    try {
+                        while (true) {
+                            const { value, done } = await reader.read();
+                            if (done) {
+                                break;
+                            }
+                            const data = textDecoder.decode(value);
+                            // This is where you would process real-time data from the device
+                            // For this simulation, we'll just log it.
+                            appendLog(`[RECEIVED] ${data}`);
+                        }
+                    } catch (error) {
+                        appendLog(`[ERROR] Read error: ${error}`, 'log-error');
+                    } finally {
+                        reader.releaseLock();
+                    }
+                }
+            };
+            
+            // --- Simulate Device Status Check with real-world logic ---
+            const getDeviceStatus = async () => {
+                // Clear old status data and add a loading animation
+                psramStatusEl.textContent = '...';
+                storageStatusEl.textContent = '...';
+                screenStatusEl.textContent = '...';
+                batteryStatusEl.textContent = '...';
+                deviceFirmwareEl.textContent = 'Firmware: ...';
+                statusGridEl.classList.add('status-pulse');
+
+                // Simulate waiting for a response from the device
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // --- Here you would normally send a command like 'get-status' and parse the response ---
+                // await writeToSerial('get-status');
+
+                // Simulate parsing a response from the device
+                const mockStatus = {
+                    psram: '8 MB',
+                    storage: '99% Free',
+                    screen: 'MISSING',
+                    battery: '75%',
+                    firmware: 'v1.2.3'
+                };
+
+                // Update the UI with the received data
+                psramStatusEl.textContent = mockStatus.psram;
+                storageStatusEl.textContent = mockStatus.storage;
+                batteryStatusEl.textContent = mockStatus.battery + '%';
+                deviceFirmwareEl.textContent = `Firmware: ${mockStatus.firmware}`;
+
+                screenStatusEl.textContent = mockStatus.screen;
+                screenStatusEl.classList.remove('status-ok');
+                screenStatusEl.classList.remove('status-missing');
+                if (mockStatus.screen === 'MISSING') {
+                    screenStatusEl.classList.add('status-missing');
+                } else {
+                    screenStatusEl.classList.add('status-ok');
+                }
+
+                statusGridEl.classList.remove('status-pulse');
+            };
+
             // --- Simulated Flashing Process ---
-            const startFlashing = () => {
-                isFlashing = true;
+            const startFlashing = async () => {
                 flashButtonEl.disabled = true;
                 connectButtonEl.disabled = true;
                 
@@ -460,7 +557,6 @@
                         clearInterval(interval);
                         
                         setTimeout(() => {
-                            isFlashing = false;
                             flashButtonEl.disabled = false;
                             connectButtonEl.disabled = false;
                             spinner.remove();
@@ -488,73 +584,57 @@
                 }, 150);
             };
 
-            // --- Simulate Automatic Device Status Check ---
-            const updateDeviceStatus = () => {
-                // For demonstration, we'll simulate a successful check
-                psramStatusEl.textContent = '8 MB';
-                storageStatusEl.textContent = '99% Free';
-                batteryStatusEl.textContent = '75%';
-                deviceFirmwareEl.textContent = 'Firmware: v1.2.3';
-
-                // Simulate SPI check, let's say it's missing this time
-                screenStatusEl.textContent = 'MISSING';
-                screenStatusEl.classList.remove('status-ok');
-                screenStatusEl.classList.add('status-missing');
-                
-                // If it was a success, you could do this instead:
-                // screenStatusEl.textContent = 'GREAT';
-                // screenStatusEl.classList.remove('status-missing');
-                // screenStatusEl.classList.add('status-ok');
-
-            };
-
             // --- Web Serial Connection Logic ---
             const connectToSerialPort = async () => {
-                if ('serial' in navigator) {
-                    try {
-                        port = await navigator.serial.requestPort();
-                        await port.open({ baudRate: 115200 });
-                        
-                        isConnected = true;
-                        connectButtonEl.disabled = true;
-                        flashButtonEl.disabled = false;
-                        connectButtonTextEl.textContent = 'Connected';
-                        
-                        deviceStatusEl.textContent = 'Device connected';
-                        deviceInfoEl.textContent = 'Ready to flash firmware.';
-                        appendLog('[INFO] Serial port connected.', 'log-success');
+                if (!('serial' in navigator)) {
+                    appendLog('[ERROR] Your browser does not support the Web Serial API. Please use a Chromium-based browser like Chrome or Edge.', 'log-error');
+                    return;
+                }
 
-                        // Update Device Status panel to be ready for checks
-                        deviceStatusConnectedEl.textContent = 'Device connected';
-                        // Automatically check device status after connecting
-                        updateDeviceStatus();
+                try {
+                    // Request a port from the user
+                    port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 115200 });
+                    
+                    isConnected = true;
+                    connectButtonEl.disabled = true;
+                    flashButtonEl.disabled = false;
+                    connectButtonTextEl.textContent = 'Connected';
+                    
+                    deviceStatusEl.textContent = 'Device connected';
+                    deviceInfoEl.textContent = 'Ready to flash firmware.';
+                    appendLog('[INFO] Serial port connected.', 'log-success');
 
-                        port.addEventListener('disconnect', () => {
-                            isConnected = false;
-                            connectButtonEl.disabled = false;
-                            flashButtonEl.disabled = true;
-                            connectButtonTextEl.textContent = 'Connect Device';
-                            deviceStatusEl.textContent = 'Device disconnected';
-                            deviceInfoEl.textContent = 'Connection lost. Please reconnect.';
-                            appendLog('[ERROR] Serial port disconnected.', 'log-error');
+                    // Start reading from the serial port
+                    readSerialLoop();
 
-                            // Reset Device Status panel
-                            deviceStatusConnectedEl.textContent = 'Device disconnected';
-                            psramStatusEl.textContent = '--';
-                            storageStatusEl.textContent = '--';
-                            screenStatusEl.textContent = '--';
-                            batteryStatusEl.textContent = '--';
-                            deviceFirmwareEl.textContent = 'Firmware: --';
-                        });
-
-                    } catch (error) {
-                        appendLog(`[ERROR] Connection failed: ${error.message}`, 'log-error');
+                    // Automatically check device status after connecting
+                    deviceStatusConnectedEl.textContent = 'Device connected';
+                    getDeviceStatus();
+                    
+                    port.addEventListener('disconnect', () => {
+                        isConnected = false;
                         connectButtonEl.disabled = false;
                         flashButtonEl.disabled = true;
                         connectButtonTextEl.textContent = 'Connect Device';
-                    }
-                } else {
-                    appendLog('[ERROR] Your browser does not support the Web Serial API. Please use a Chromium-based browser like Chrome or Edge.', 'log-error');
+                        deviceStatusEl.textContent = 'Device disconnected';
+                        deviceInfoEl.textContent = 'Connection lost. Please reconnect.';
+                        appendLog('[ERROR] Serial port disconnected.', 'log-error');
+
+                        // Reset UI elements on disconnect
+                        deviceStatusConnectedEl.textContent = 'Device disconnected';
+                        psramStatusEl.textContent = '--';
+                        storageStatusEl.textContent = '--';
+                        screenStatusEl.textContent = '--';
+                        batteryStatusEl.textContent = '--';
+                        deviceFirmwareEl.textContent = 'Firmware: --';
+                    });
+
+                } catch (error) {
+                    appendLog(`[ERROR] Connection failed: ${error.message}`, 'log-error');
+                    connectButtonEl.disabled = false;
+                    flashButtonEl.disabled = true;
+                    connectButtonTextEl.textContent = 'Connect Device';
                 }
             };
             
