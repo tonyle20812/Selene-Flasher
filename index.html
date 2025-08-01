@@ -177,7 +177,7 @@
             // Show a temporary message box
             showMessage(text, type = 'error') {
                 this.messageText.textContent = text;
-                const newClass = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+                const newClass = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg bg-red-500 text-white transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
                 this.messageBox.className = newClass;
                 setTimeout(() => {
                     this.messageBox.className = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-0 transition-transform duration-300 z-50`;
@@ -226,9 +226,21 @@
                     });
 
                     this.log('Connecting to chip...');
-                    await this.esploader.connect();
-                    this.log(`Successfully connected to chip: ${this.esploader.chipName}`, 'success');
-                    this.isConnected = true;
+                    const attempts = 10;
+                    for (let i = 0; i < attempts; i++) {
+                        try {
+                            await this.esploader.connect();
+                            this.log(`Successfully connected to chip: ${this.esploader.chipName}`, 'success');
+                            this.isConnected = true;
+                            return; // Success, exit the loop
+                        } catch (innerError) {
+                            this.log(`Connection attempt ${i + 1}/${attempts} failed. Retrying...`, 'info');
+                            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before next attempt
+                            if (i === attempts - 1) {
+                                throw innerError; // If all attempts fail, re-throw the last error
+                            }
+                        }
+                    }
                 } catch (error) {
                     this.log(`Connection failed: ${error.message}`, 'error');
                     this.showMessage(`Connection failed: ${error.message}. Please follow the instructions and try again.`);
