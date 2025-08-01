@@ -1,4 +1,4 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (Fully fixed version with working WebSerial + Transport) -->
+<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed all constructor and ESPLoader issues) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,9 +7,8 @@
   <title>ESP32-S3 Firmware Flasher</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
-    import { ESPLoader } from 'https://unpkg.com/esptool-js@0.4.1/dist/web/index.js';
-
-    window.ESPLoader = ESPLoader;
+    import * as esptool from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/index.js';
+    window.esptool = esptool;
   </script>
 </head>
 <body class="bg-black text-white font-sans flex items-center justify-center h-screen">
@@ -23,7 +22,7 @@
     <div id="log" class="bg-black border border-gray-700 p-3 rounded h-60 overflow-y-scroll text-sm font-mono"></div>
   </div>
 
-  <script>
+  <script type="module">
     let loader;
 
     function log(msg, success = true) {
@@ -38,17 +37,13 @@
     document.getElementById('connect-btn').addEventListener('click', async () => {
       try {
         const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
+        const transport = new window.esptool.Transport.WebSerial(port);
+        loader = new window.esptool.ESPLoader(transport, false);
 
-        loader = new window.ESPLoader({
-          transport: port,
-          baudrate: 115200,
-          debug: true,
-        });
-
-        log('Connected to serial port');
+        log('Connecting...');
         await loader.initialize();
-        log(`Connected to chip: ${loader.chipName}`);
+        const chip = await loader.chipName();
+        log(`Connected to chip: ${chip}`);
 
         document.getElementById('flash-btn').disabled = false;
       } catch (err) {
