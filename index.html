@@ -40,8 +40,8 @@
           const port = await navigator.serial.requestPort();
           await port.open({ baudRate: 115200 });
 
-          const transport = new globalThis.ESPLoader.Transport.WebSerial(port);
-          loader = new globalThis.ESPLoader.ESPLoader(transport, false);
+          const transport = new ESPLoaderWebSerial(port);
+          loader = new ESPLoader(transport, false);
 
           log('Connected to serial port');
 
