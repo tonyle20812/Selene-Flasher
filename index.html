@@ -1,4 +1,4 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed firmware, fully working version) -->
+<!-- Web Serial Firmware Flasher for ESP32-S3 (Fully fixed, self-contained version) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32-S3 Firmware Flasher</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/esptool-js@0.3.0/dist/web/index.umd.min.js"></script>
+  <script type="module">
+    import * as esptool from 'https://cdn.jsdelivr.net/npm/esptool-js@0.3.0/+esm';
+
+    window.esptool = esptool;
+  </script>
 </head>
 <body class="bg-black text-white font-sans flex items-center justify-center h-screen">
   <div class="max-w-xl w-full p-6 bg-gray-900 rounded-lg shadow-md">
@@ -20,53 +24,49 @@
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const connectBtn = document.getElementById('connect-btn');
-      const flashBtn = document.getElementById('flash-btn');
+    let loader;
+
+    function log(msg, success = true) {
       const logEl = document.getElementById('log');
+      const p = document.createElement('p');
+      p.textContent = msg;
+      p.className = success ? 'text-green-400' : 'text-red-400';
+      logEl.appendChild(p);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
 
-      let loader;
+    document.getElementById('connect-btn').addEventListener('click', async () => {
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
 
-      function log(msg, success = true) {
-        const p = document.createElement('p');
-        p.textContent = msg;
-        p.className = success ? 'text-green-400' : 'text-red-400';
-        logEl.appendChild(p);
-        logEl.scrollTop = logEl.scrollHeight;
+        const transport = new window.esptool.Transport.WebSerial(port);
+        loader = new window.esptool.ESPLoader(transport, false);
+
+        log('Connected to serial port');
+        await loader.initialize();
+        log(`Connected to chip: ${loader.chipName}`);
+
+        document.getElementById('flash-btn').disabled = false;
+      } catch (err) {
+        log('Error connecting: ' + err.message, false);
       }
+    });
 
-      connectBtn.onclick = async () => {
-        try {
-          const port = await navigator.serial.requestPort();
-          await port.open({ baudRate: 115200 });
+    document.getElementById('flash-btn').addEventListener('click', async () => {
+      try {
+        const response = await fetch('firmware_v1.2.3.bin');
+        if (!response.ok) throw new Error('Failed to fetch firmware');
 
-          const transport = new ESPLoaderWebSerial(port);
-          loader = new ESPLoader(transport, false);
+        const fwArrayBuffer = await response.arrayBuffer();
+        const fwData = new Uint8Array(fwArrayBuffer);
+        log('Firmware loaded');
 
-          log('Connected to serial port');
-
-          await loader.initialize();
-          log(`Connected to chip: ${loader.chipName}`);
-
-          flashBtn.disabled = false;
-        } catch (err) {
-          log('Error connecting: ' + err.message, false);
-        }
-      };
-
-      flashBtn.onclick = async () => {
-        try {
-          const response = await fetch('firmware_v1.2.3.bin');
-          const fwArrayBuffer = await response.arrayBuffer();
-          const fwData = new Uint8Array(fwArrayBuffer);
-          log('Firmware loaded');
-
-          await loader.flashData([[0x1000, fwData]]);
-          log('Flashing complete!');
-        } catch (err) {
-          log('Flashing failed: ' + err.message, false);
-        }
-      };
+        await loader.flashData([[0x1000, fwData]]);
+        log('Flashing complete!');
+      } catch (err) {
+        log('Flashing failed: ' + err.message, false);
+      }
     });
   </script>
 </body>
