@@ -83,9 +83,11 @@
         <p id="message-text">Error message here.</p>
     </div>
 
-    <!-- esptool-js library via CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/esptool-js@0.5.6/bundle.js"></script>
-    <script>
+    <!-- The main application script, now loaded as a module -->
+    <script type="module">
+        // Import ESPLoader from the unpkg CDN, which is an ES Module
+        import { ESPLoader } from 'https://unpkg.com/esptool-js@0.5.6/bundle.js';
+
         // Use a self-invoking async function to handle all the logic
         (async () => {
             // Get all the DOM elements we'll be interacting with
@@ -137,8 +139,7 @@
                     // Request a serial port from the browser
                     const port = await navigator.serial.requestPort();
                     
-                    // The esptool-js library handles the full flashing protocol
-                    // We just need to initialize it with the port and provide a logger
+                    // Initialize ESPLoader with the port and logger functions
                     esploader = new ESPLoader(port, {
                         log: (message) => {
                             log(message);
