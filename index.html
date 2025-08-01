@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firmware Updater</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* Custom scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2b2b2b;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5c5c5c;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            max-width: 1024px;
+            height: 80vh;
+            min-height: 600px;
+            border-radius: 1rem;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Sidebar styles */
+        .sidebar {
+            background-color: #1f1f1f;
+            border-right: 1px solid #2b2b2b;
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sidebar h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #f3f4f6;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            color: #a0a0a0;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .sidebar-item:hover, .sidebar-item.active {
+            background-color: #2b2b2b;
+            color: #f3f4f6;
+        }
+        
+        /* Main content styles */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            gap: 1.5rem;
+        }
+
+        .header {
+            text-align: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #2b2b2b;
+        }
+        
+        .card {
+            background-color: #2b2b2b;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 1px solid #333;
+        }
+        
+        .log-output {
+            background-color: #0d0d0d;
+            border: 1px solid #333;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 1rem;
+        }
+
+        .log-entry {
+            color: #d1d5db;
+            margin-bottom: 0.25rem;
+        }
+
+        .log-success {
+            color: #4ade80;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+        
+        .progress-bar-inner {
+            transition: width 0.3s ease-in-out;
+            background: linear-gradient(90deg, #60a5fa, #3b82f6);
+        }
+
+        .button-primary {
+            background: linear-gradient(180deg, #4f46e5, #4338ca);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px 0 rgba(76, 56, 203, 0.5);
+        }
+
+        .button-primary:disabled {
+            background: #4a4a4a;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #ffffff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1.2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            text-align: center;
+        }
+        /* Adjusted grid for 4 items */
+        .status-grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .status-item {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background-color: #1a1a1a;
+            border: 1px solid #2b2b2b;
+        }
+
+        .status-item p {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #a0a0a0;
+        }
+        
+        .status-item h4 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            color: #f3f4f6;
+        }
+        
+        .status-missing {
+            color: #ef4444; /* Red color for MISSING */
+        }
+
+        .status-ok {
+            color: #4ade80; /* Green color for OK */
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Main Application Container -->
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h2 class="text-white">Firmware Tools</h2>
+            <div id="firmware-updater-tab" class="sidebar-item active">
+                <!-- SVG Icon for Updater -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm0 2v16h10V4H7zm2 14h6v2H9v-2zm-2-2h10v-8H7v8zM9 8h6v2H9V8z"/>
+                </svg>
+                <span>Firmware Updater</span>
+            </div>
+            <div id="device-status-tab" class="sidebar-item">
+                <!-- SVG Icon for Serial Monitor (now Device Status) -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14 6H10a2 2 0 00-2 2v8a2 2 0 002 2h4a2 2 0 002-2V8a2 2 0 00-2-2zm-2 10H10v-4h2v4zm4-4h-2v4h2v-4zM8 4a2 2 0 012-2h4a2 2 0 012 2v1h-8V4z"/>
+                </svg>
+                <span>Device Status</span>
+            </div>
+            <div id="casting-tab" class="sidebar-item">
+                <!-- SVG Icon for Casting -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8zm4.7-6.7a.8.8 0 00-.5.2L12 14.5l-4.2-3a.8.8 0 00-.5-.2 1 1 0 00-1 1v4.8a1 1 0 001 1h8.4a1 1 0 001-1v-4.8a1 1 0 00-1-1zM10 12.3a.8.8 0 00-.5-.2 1 1 0 00-1 1v2.8a1 1 0 001 1h4.4a1 1 0 001-1v-2.8a1 1 0 00-1-1h-.5a.8.8 0 00-.5-.2 1 1 0 00-1 1v2.8a1 1 0 00-1-1h-.4zM10.8 7a.8.8 0 00.5.2l.5.3.5-.3a.8.8 0 00.5-.2 1 1 0 00-1-1z"/>
+                </svg>
+                <span>Casting</span>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Firmware Updater Panel -->
+            <div id="firmware-updater-panel">
+                <div class="header">
+                    <h1 class="text-3xl font-bold text-gray-100">Firmware Updater</h1>
+                    <p class="text-gray-400">Connect a device and flash new firmware</p>
+                </div>
+
+                <!-- Combined Device Status and Actions Card -->
+                <div class="card space-y-6">
+                    <!-- Device Status -->
+                    <div class="flex items-center space-x-4">
+                        <svg id="device-icon" xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm0 2v16h10V4H7zm2 14h6v2H9v-2zm-2-2h10v-8H7v8zM9 8h6v2H9V8z"/>
+                        </svg>
+                        <div class="flex-grow">
+                            <p id="device-status" class="text-2xl font-semibold text-gray-200">Device disconnected</p>
+                            <p id="device-info" class="text-sm text-gray-500">Click connect to begin.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Firmware Info -->
+                    <div class="border-t border-b border-[#2b2b2b] py-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Firmware Version</label>
+                        <div class="py-2 px-4 bg-[#0d0d0d] rounded-md text-sm font-mono text-gray-400">
+                            firmware_v1.2.3.bin
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div>
+                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div id="progress-bar" class="progress-bar-inner h-full rounded-full" style="width: 0%;"></div>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-400 mt-2">
+                            <span id="progress-status">Idle</span>
+                            <span id="progress-percentage">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Buttons for Connect and Flash -->
+                    <div class="flex space-x-4">
+                        <button id="connect-button" class="w-full py-3 px-6 rounded-lg text-white font-semibold button-primary focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 flex items-center justify-center space-x-2">
+                            <span id="connect-button-text">Connect Device</span>
+                        </button>
+                        <button id="flash-button" class="w-full py-3 px-6 rounded-lg text-white font-semibold button-primary focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 flex items-center justify-center space-x-2" disabled>
+                            <span id="flash-button-text">Flash Firmware</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Log Output -->
+                <div class="flex flex-col space-y-2 flex-grow">
+                    <h3 class="text-lg font-semibold text-gray-200">Logs</h3>
+                    <div class="log-output rounded-lg flex-grow" id="log-output">
+                        <p id="log-start-message" class="text-gray-500">Click "Connect Device" to get started.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Status Panel (Hidden by default) -->
+            <div id="device-status-panel" class="hidden h-full flex flex-col">
+                <div class="header">
+                    <h1 class="text-3xl font-bold text-gray-100">Device Status</h1>
+                    <p class="text-gray-400">View hardware configuration and status</p>
+                </div>
+                
+                <div class="card flex flex-col items-center justify-center space-y-4 mb-4">
+                    <p id="device-status-connected" class="text-2xl font-semibold text-gray-200">Device disconnected</p>
+                </div>
+
+                <!-- Updated status grid with 4 items -->
+                <div class="card status-grid-4">
+                    <div class="status-item">
+                        <p>PSRAM</p>
+                        <h4 id="psram-status">--</h4>
+                    </div>
+                    <div class="status-item">
+                        <p>Storage</p>
+                        <h4 id="storage-status">--</h4>
+                    </div>
+                    <div class="status-item">
+                        <p>Screen (SPI)</p>
+                        <h4 id="screen-status">--</h4>
+                    </div>
+                    <div class="status-item">
+                        <p>Battery</p>
+                        <h4 id="battery-status">--</h4>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <p id="device-firmware" class="text-gray-400">Firmware: --</p>
+                </div>
+            </div>
+            
+            <!-- Casting Panel (Hidden by default) -->
+            <div id="casting-panel" class="hidden h-full flex flex-col items-center justify-center space-y-6">
+                <div class="header text-center">
+                    <h1 class="text-3xl font-bold text-gray-100">Casting</h1>
+                    <p class="text-gray-400">Stream your device screen to the web</p>
+                </div>
+                <div class="card w-2/3 h-64 flex items-center justify-center">
+                    <p class="text-gray-400">Screen casting preview area...</p>
+                </div>
+                <button id="start-casting-button" class="py-3 px-6 rounded-lg text-white font-semibold button-primary focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                    Start Casting
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- UI Elements ---
+            const deviceStatusEl = document.getElementById('device-status');
+            const deviceInfoEl = document.getElementById('device-info');
+            const progressBarEl = document.getElementById('progress-bar');
+            const progressStatusEl = document.getElementById('progress-status');
+            const progressPercentageEl = document.getElementById('progress-percentage');
+            const connectButtonEl = document.getElementById('connect-button');
+            const connectButtonTextEl = document.getElementById('connect-button-text');
+            const flashButtonEl = document.getElementById('flash-button');
+            const flashButtonTextEl = document.getElementById('flash-button-text');
+            const logOutputEl = document.getElementById('log-output');
+
+            const firmwareUpdaterTab = document.getElementById('firmware-updater-tab');
+            const deviceStatusTab = document.getElementById('device-status-tab');
+            const castingTab = document.getElementById('casting-tab');
+
+            const firmwareUpdaterPanel = document.getElementById('firmware-updater-panel');
+            const deviceStatusPanel = document.getElementById('device-status-panel');
+            const castingPanel = document.getElementById('casting-panel');
+
+            // Device Status Panel elements
+            const deviceStatusConnectedEl = document.getElementById('device-status-connected');
+            const psramStatusEl = document.getElementById('psram-status');
+            const storageStatusEl = document.getElementById('storage-status');
+            const screenStatusEl = document.getElementById('screen-status');
+            const batteryStatusEl = document.getElementById('battery-status');
+            const deviceFirmwareEl = document.getElementById('device-firmware');
+
+
+            // --- State Variables ---
+            const FIRMWARE_FILE_NAME = 'firmware_v1.2.3.bin';
+            let isFlashing = false;
+            let isConnected = false;
+            let port = null;
+
+            // --- Sidebar Navigation ---
+            const switchPanel = (panelToShow, tabToActivate) => {
+                // Hide all panels
+                firmwareUpdaterPanel.classList.add('hidden');
+                deviceStatusPanel.classList.add('hidden');
+                castingPanel.classList.add('hidden');
+                
+                // Deactivate all tabs
+                firmwareUpdaterTab.classList.remove('active');
+                deviceStatusTab.classList.remove('active');
+                castingTab.classList.remove('active');
+                
+                // Show the selected panel and activate the corresponding tab
+                panelToShow.classList.remove('hidden');
+                tabToActivate.classList.add('active');
+            };
+
+            firmwareUpdaterTab.addEventListener('click', () => switchPanel(firmwareUpdaterPanel, firmwareUpdaterTab));
+            deviceStatusTab.addEventListener('click', () => switchPanel(deviceStatusPanel, deviceStatusTab));
+            castingTab.addEventListener('click', () => switchPanel(castingPanel, castingTab));
+
+            // --- Log Appender ---
+            const appendLog = (message, type = 'log-entry') => {
+                const logEntry = document.createElement('p');
+                logEntry.className = `log-entry ${type}`;
+                const now = new Date();
+                const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+                logEntry.textContent = `[${timeString}] ${message}`;
+                logOutputEl.appendChild(logEntry);
+                logOutputEl.scrollTop = logOutputEl.scrollHeight;
+            };
+
+            // --- Simulated Flashing Process ---
+            const startFlashing = () => {
+                isFlashing = true;
+                flashButtonEl.disabled = true;
+                connectButtonEl.disabled = true;
+                
+                const spinner = document.createElement('div');
+                spinner.className = 'spinner';
+                flashButtonTextEl.textContent = 'Flashing...';
+                flashButtonEl.insertBefore(spinner, flashButtonTextEl);
+
+                let progress = 0;
+                progressBarEl.style.width = '0%';
+                progressStatusEl.textContent = 'Starting';
+                progressPercentageEl.textContent = '0%';
+                
+                deviceStatusEl.textContent = 'Flashing firmware...';
+                deviceInfoEl.textContent = `Updating with ${FIRMWARE_FILE_NAME}`;
+
+                appendLog('[INFO] Starting firmware flash process...');
+
+                const interval = setInterval(() => {
+                    progress += Math.floor(Math.random() * 5) + 1;
+                    if (progress >= 100) {
+                        progress = 100;
+                        clearInterval(interval);
+                        
+                        setTimeout(() => {
+                            isFlashing = false;
+                            flashButtonEl.disabled = false;
+                            connectButtonEl.disabled = false;
+                            spinner.remove();
+                            flashButtonTextEl.textContent = 'Flash Firmware';
+                            deviceStatusEl.textContent = 'Update successful!';
+                            deviceInfoEl.textContent = 'The device has been updated.';
+                            progressStatusEl.textContent = 'Complete';
+                            appendLog('[SUCCESS] Firmware flash completed successfully!', 'log-success');
+                        }, 500);
+                    }
+
+                    progressBarEl.style.width = `${progress}%`;
+                    progressPercentageEl.textContent = `${progress}%`;
+
+                    if (progress > 10 && progress <= 20) {
+                        progressStatusEl.textContent = 'Verifying...';
+                    } else if (progress > 20 && progress <= 50) {
+                        progressStatusEl.textContent = 'Writing...';
+                    } else if (progress > 50 && progress <= 80) {
+                        progressStatusEl.textContent = 'Validating...';
+                    } else if (progress > 80 && progress < 100) {
+                        progressStatusEl.textContent = 'Finishing up...';
+                    }
+                    
+                }, 150);
+            };
+
+            // --- Simulate Automatic Device Status Check ---
+            const updateDeviceStatus = () => {
+                // For demonstration, we'll simulate a successful check
+                psramStatusEl.textContent = '8 MB';
+                storageStatusEl.textContent = '99% Free';
+                batteryStatusEl.textContent = '75%';
+                deviceFirmwareEl.textContent = 'Firmware: v1.2.3';
+
+                // Simulate SPI check, let's say it's missing this time
+                screenStatusEl.textContent = 'MISSING';
+                screenStatusEl.classList.remove('status-ok');
+                screenStatusEl.classList.add('status-missing');
+                
+                // If it was a success, you could do this instead:
+                // screenStatusEl.textContent = 'GREAT';
+                // screenStatusEl.classList.remove('status-missing');
+                // screenStatusEl.classList.add('status-ok');
+
+            };
+
+            // --- Web Serial Connection Logic ---
+            const connectToSerialPort = async () => {
+                if ('serial' in navigator) {
+                    try {
+                        port = await navigator.serial.requestPort();
+                        await port.open({ baudRate: 115200 });
+                        
+                        isConnected = true;
+                        connectButtonEl.disabled = true;
+                        flashButtonEl.disabled = false;
+                        connectButtonTextEl.textContent = 'Connected';
+                        
+                        deviceStatusEl.textContent = 'Device connected';
+                        deviceInfoEl.textContent = 'Ready to flash firmware.';
+                        appendLog('[INFO] Serial port connected.', 'log-success');
+
+                        // Update Device Status panel to be ready for checks
+                        deviceStatusConnectedEl.textContent = 'Device connected';
+                        // Automatically check device status after connecting
+                        updateDeviceStatus();
+
+                        port.addEventListener('disconnect', () => {
+                            isConnected = false;
+                            connectButtonEl.disabled = false;
+                            flashButtonEl.disabled = true;
+                            connectButtonTextEl.textContent = 'Connect Device';
+                            deviceStatusEl.textContent = 'Device disconnected';
+                            deviceInfoEl.textContent = 'Connection lost. Please reconnect.';
+                            appendLog('[ERROR] Serial port disconnected.', 'log-error');
+
+                            // Reset Device Status panel
+                            deviceStatusConnectedEl.textContent = 'Device disconnected';
+                            psramStatusEl.textContent = '--';
+                            storageStatusEl.textContent = '--';
+                            screenStatusEl.textContent = '--';
+                            batteryStatusEl.textContent = '--';
+                            deviceFirmwareEl.textContent = 'Firmware: --';
+                        });
+
+                    } catch (error) {
+                        appendLog(`[ERROR] Connection failed: ${error.message}`, 'log-error');
+                        connectButtonEl.disabled = false;
+                        flashButtonEl.disabled = true;
+                        connectButtonTextEl.textContent = 'Connect Device';
+                    }
+                } else {
+                    appendLog('[ERROR] Your browser does not support the Web Serial API. Please use a Chromium-based browser like Chrome or Edge.', 'log-error');
+                }
+            };
+            
+            // --- Event Listeners ---
+            connectButtonEl.addEventListener('click', connectToSerialPort);
+            flashButtonEl.addEventListener('click', startFlashing);
+        });
+    </script>
+</body>
+</html>
