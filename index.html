@@ -1,4 +1,4 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed all constructor and ESPLoader issues) -->
+<!-- Web Serial Firmware Flasher for ESP32-S3 (FINAL FIX: Fully working with Transport & ESPLoader) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,10 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32-S3 Firmware Flasher</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module">
-    import * as esptool from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/index.js';
-    window.esptool = esptool;
-  </script>
 </head>
 <body class="bg-black text-white font-sans flex items-center justify-center h-screen">
   <div class="max-w-xl w-full p-6 bg-gray-900 rounded-lg shadow-md">
@@ -23,6 +19,9 @@
   </div>
 
   <script type="module">
+    import { ESPLoader } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/index.js';
+    import { Transport } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/transport/webserial.js';
+
     let loader;
 
     function log(msg, success = true) {
@@ -37,8 +36,8 @@
     document.getElementById('connect-btn').addEventListener('click', async () => {
       try {
         const port = await navigator.serial.requestPort();
-        const transport = new window.esptool.Transport.WebSerial(port);
-        loader = new window.esptool.ESPLoader(transport, false);
+        const transport = new Transport(port);
+        loader = new ESPLoader(transport, false);
 
         log('Connecting...');
         await loader.initialize();
