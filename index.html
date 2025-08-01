@@ -1,4 +1,4 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed firmware) -->
+<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed firmware, working version) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,9 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32-S3 Firmware Flasher</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module">
-    import { ESPLoader } from "https://cdn.jsdelivr.net/gh/espressif/esptool-js@main/esptool.js";
+  <script src="https://cdn.jsdelivr.net/gh/espressif/esptool-js@main/dist/web/index.umd.js"></script>
+</head>
+<body class="bg-black text-white font-sans flex items-center justify-center h-screen">
+  <div class="max-w-xl w-full p-6 bg-gray-900 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold mb-4">ESP32-S3 Firmware Flasher</h1>
+    <p class="mb-4">Firmware: <code>firmware_v1.2.3.bin</code></p>
+    <div class="flex gap-4 mb-4">
+      <button id="connect-btn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Connect</button>
+      <button id="flash-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" disabled>Flash Firmware</button>
+    </div>
+    <div id="log" class="bg-black border border-gray-700 p-3 rounded h-60 overflow-y-scroll text-sm font-mono"></div>
+  </div>
 
+  <script>
     document.addEventListener('DOMContentLoaded', () => {
       const connectBtn = document.getElementById('connect-btn');
       const flashBtn = document.getElementById('flash-btn');
@@ -28,10 +39,15 @@
         try {
           const port = await navigator.serial.requestPort();
           await port.open({ baudRate: 115200 });
-          loader = new ESPLoader(port, false);
+
+          const transport = new ESPWebSerial(port);
+          loader = new ESPLoader(transport, false);
+
           log('Connected to serial port');
+
           await loader.initialize();
-          log('ESP32 chip detected');
+          log(`Connected to chip: ${loader.chipName}`);
+
           flashBtn.disabled = false;
         } catch (err) {
           log('Error connecting: ' + err.message, false);
@@ -53,16 +69,5 @@
       };
     });
   </script>
-</head>
-<body class="bg-black text-white font-sans flex items-center justify-center h-screen">
-  <div class="max-w-xl w-full p-6 bg-gray-900 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-4">ESP32-S3 Firmware Flasher</h1>
-    <p class="mb-4">Firmware: <code>firmware_v1.2.3.bin</code></p>
-    <div class="flex gap-4 mb-4">
-      <button id="connect-btn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Connect</button>
-      <button id="flash-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" disabled>Flash Firmware</button>
-    </div>
-    <div id="log" class="bg-black border border-gray-700 p-3 rounded h-60 overflow-y-scroll text-sm font-mono"></div>
-  </div>
 </body>
 </html>
