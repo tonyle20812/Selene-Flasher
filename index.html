@@ -50,7 +50,12 @@
                     class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
                 Connect to Device
             </button>
-            
+            <button id="disconnect-button" disabled
+                    class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                Disconnect
+            </button>
+        </div>
+        <div class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
             <label for="firmware-file" class="file-label bg-gray-200 hover:bg-gray-300 text-gray-800 transition duration-300">
                 Choose Firmware (.bin)
             </label>
@@ -59,6 +64,10 @@
             <button id="flash-button" disabled
                     class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
                 Flash Firmware
+            </button>
+            <button id="reset-button" disabled
+                    class="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                Reset Device
             </button>
         </div>
 
@@ -92,7 +101,9 @@
         (async () => {
             // Get all the DOM elements we'll be interacting with
             const connectButton = document.getElementById('connect-button');
+            const disconnectButton = document.getElementById('disconnect-button');
             const flashButton = document.getElementById('flash-button');
+            const resetButton = document.getElementById('reset-button');
             const fileInput = document.getElementById('firmware-file');
             const progressBar = document.getElementById('progress-bar');
             const statusMessage = document.getElementById('status-message');
@@ -120,19 +131,24 @@
                 }, 5000);
             };
 
-            // Event listener for the "Connect" button
-            connectButton.addEventListener('click', async () => {
-                if (esploader) {
-                    // Disconnect if already connected
-                    await esploader.disconnect();
-                    esploader = null;
-                    connectButton.textContent = 'Connect to Device';
-                    flashButton.disabled = true;
+            // Function to update the UI state based on connection status
+            const updateUIForConnection = (isConnected) => {
+                connectButton.disabled = isConnected;
+                disconnectButton.disabled = !isConnected;
+                flashButton.disabled = !isConnected || !file;
+                resetButton.disabled = !isConnected;
+                
+                if (isConnected) {
+                    statusMessage.textContent = `Connected to chip: ${esploader.chipName}. Please choose a firmware file.`;
+                    log(`Successfully connected to chip: ${esploader.chipName}.`);
+                } else {
                     statusMessage.textContent = 'Disconnected.';
                     log('Disconnected from device.');
-                    return;
                 }
-
+            };
+            
+            // Event listener for the "Connect" button
+            connectButton.addEventListener('click', async () => {
                 try {
                     log('Attempting to connect to device...');
                     
@@ -151,22 +167,27 @@
                     });
 
                     // Start the bootloader and get chip info
-                    const chip = await esploader.connect();
+                    await esploader.connect();
                     
                     // The connection was successful, so we update the UI
-                    connectButton.textContent = 'Disconnect';
-                    flashButton.disabled = false;
-                    statusMessage.textContent = `Connected to chip: ${chip}. Please choose a firmware file.`;
-                    log(`Successfully connected to chip: ${chip}.`);
+                    updateUIForConnection(true);
 
                 } catch (error) {
                     // If an error occurs during connection, we reset the esploader object
                     // and provide a clear error message.
                     esploader = null;
-                    connectButton.textContent = 'Connect to Device';
-                    flashButton.disabled = true;
+                    updateUIForConnection(false);
                     log(`Connection failed: ${error.message}. Please ensure your device is in bootloader mode and the drivers are installed.`);
                     showMessage(`Connection failed: ${error.message}.`);
+                }
+            });
+            
+            // Event listener for the "Disconnect" button
+            disconnectButton.addEventListener('click', async () => {
+                if (esploader) {
+                    await esploader.disconnect();
+                    esploader = null;
+                    updateUIForConnection(false);
                 }
             });
 
@@ -188,6 +209,8 @@
                 }
 
                 flashButton.disabled = true;
+                resetButton.disabled = true;
+                disconnectButton.disabled = true;
                 statusMessage.textContent = 'Flashing firmware...';
                 log(`Starting to flash firmware: ${file.name}`);
                 
@@ -217,6 +240,8 @@
                         // Reset the progress bar for the next use
                         progressBar.style.width = '0%';
                         flashButton.disabled = false;
+                        resetButton.disabled = false;
+                        disconnectButton.disabled = false;
                     };
                     reader.readAsArrayBuffer(file);
 
@@ -224,7 +249,24 @@
                     log(`Flashing failed: ${error.message}`);
                     showMessage(`Flashing failed: ${error.message}`);
                     flashButton.disabled = false;
+                    resetButton.disabled = false;
+                    disconnectButton.disabled = false;
                     progressBar.style.width = '0%';
+                }
+            });
+
+            // Event listener for the "Reset" button
+            resetButton.addEventListener('click', async () => {
+                if (esploader) {
+                    log('Resetting the device...');
+                    try {
+                        await esploader.hard_reset();
+                        log('Device reset successfully!');
+                        statusMessage.textContent = 'Device reset. It is now running the new firmware.';
+                    } catch (error) {
+                        log(`Reset failed: ${error.message}`);
+                        showMessage(`Reset failed: ${error.message}`);
+                    }
                 }
             });
         })();
