@@ -1,4 +1,4 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed firmware, working version) -->
+<!-- Web Serial Firmware Flasher for ESP32-S3 (Fixed firmware, fully working version) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,8 +40,8 @@
           const port = await navigator.serial.requestPort();
           await port.open({ baudRate: 115200 });
 
-          const transport = new ESPWebSerial(port);
-          loader = new ESPLoader(transport, false);
+          const transport = new window.ESPLoader.ESPWebSerial(port);
+          loader = new window.ESPLoader.ESPLoader(transport, false);
 
           log('Connected to serial port');
 
