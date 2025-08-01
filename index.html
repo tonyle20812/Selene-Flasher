@@ -7,17 +7,24 @@
     <!-- Use Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
         /* Custom styles for the terminal-like output */
         .terminal {
-            background-color: #1a202c;
-            color: #a0aec0;
+            background-color: #1f2937; /* Darker gray background */
+            color: #d1d5db; /* Light gray text */
             font-family: monospace;
             white-space: pre-wrap;
             word-wrap: break-word;
             padding: 1rem;
-            border-radius: 0.5rem;
+            border-radius: 0.75rem; /* More rounded corners */
             overflow-y: scroll;
             height: 300px;
+            border: 1px solid #374151; /* Subtle border */
         }
 
         /* Hide the default file input */
@@ -33,36 +40,67 @@
             font-weight: 600;
             transition: background-color 0.3s ease;
         }
+
+        /* Custom styling for buttons with subtle shadow and transition */
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease-in-out;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .btn-primary:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-2xl">
-        <h1 class="text-3xl font-bold mb-6 text-center text-indigo-600">ESP32 Web Flasher</h1>
-        <p class="text-sm text-center text-gray-500 mb-8">
-            Connect your ESP32 device via USB and flash firmware directly from your browser.
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-2xl border border-gray-700">
+        <h1 class="text-3xl font-bold mb-2 text-center text-indigo-400">ESP Web Flasher</h1>
+        <p class="text-sm text-center text-gray-400 mb-6">
+            A reliable tool for flashing ESP32 firmware using the Web Serial API.
             <br>
-            Requires a Chromium-based browser (Chrome, Edge, Opera) and Web Serial API support.
+            Works best on Chromium-based browsers (Chrome, Edge) with the correct USB drivers installed.
         </p>
+
+        <!-- Instructions for Bootloader Mode -->
+        <div class="bg-gray-700 p-4 rounded-lg mb-6 text-sm text-gray-300">
+            <h3 class="font-bold text-gray-100 mb-2">Instructions:</h3>
+            <ol class="list-decimal list-inside space-y-1">
+                <li>Connect your ESP32 board to your computer with a **data-capable** USB cable.</li>
+                <li>**Press and hold** the **BOOT** button on your board.</li>
+                <li>While holding BOOT, **press and release** the **RESET** button.</li>
+                <li>**Release** the **BOOT** button.</li>
+                <li>Your device is now in bootloader mode. Click the "Connect" button below.</li>
+            </ol>
+        </div>
 
         <!-- Connection and Control Buttons -->
         <div class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
             <button id="connect-button" 
-                    class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                    class="w-full sm:w-auto btn-primary py-3 px-6 rounded-lg font-bold">
                 Connect to Device
             </button>
             <button id="disconnect-button" disabled
-                    class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
                 Disconnect
             </button>
         </div>
         <div class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
-            <label for="firmware-file" class="file-label bg-gray-200 hover:bg-gray-300 text-gray-800 transition duration-300">
+            <label for="firmware-file" class="file-label bg-gray-600 hover:bg-gray-500 text-gray-100 transition duration-300">
                 Choose Firmware (.bin)
             </label>
             <input type="file" id="firmware-file" accept=".bin" />
 
             <button id="flash-button" disabled
-                    class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="w-full sm:w-auto btn-primary py-3 px-6 rounded-lg font-bold">
                 Flash Firmware
             </button>
             <button id="reset-button" disabled
@@ -73,21 +111,21 @@
 
         <!-- Progress Bar and Status -->
         <div class="mb-6">
-            <div id="status-message" class="text-center text-sm font-semibold text-gray-600 mb-2">
+            <div id="status-message" class="text-center text-sm font-semibold text-gray-400 mb-2">
                 Waiting for device...
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-                <div id="progress-bar" class="bg-green-500 h-2.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+            <div class="w-full bg-gray-700 rounded-full h-2.5">
+                <div id="progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
             </div>
         </div>
 
         <!-- Log Output Terminal -->
         <div class="terminal">
-            <p>Ready to connect. Click "Connect to Device" to begin.</p>
+            <p>Ready to connect. Follow the instructions above and click "Connect to Device" to begin.</p>
         </div>
     </div>
     
-    <!-- Toast/Modal for user messages (instead of alert) -->
+    <!-- Modal/Toast for user messages (instead of alert) -->
     <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg shadow-lg bg-red-500 text-white transform scale-0 transition-transform duration-300 z-50">
         <p id="message-text">Error message here.</p>
     </div>
@@ -118,7 +156,7 @@
             // Function to display messages in the terminal log
             const log = (message) => {
                 const p = document.createElement('p');
-                p.textContent = message;
+                p.textContent = `> ${message}`;
                 terminal.appendChild(p);
                 terminal.scrollTop = terminal.scrollHeight; // Auto-scroll to the bottom
             };
@@ -126,7 +164,8 @@
             // Function to show a temporary message box instead of alert()
             const showMessage = (text, type = 'error') => {
                 messageText.textContent = text;
-                messageBox.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+                const newClass = `fixed top-4 right-4 p-4 rounded-lg shadow-lg transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+                messageBox.className = newClass;
                 setTimeout(() => {
                     messageBox.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg transform scale-0 transition-transform duration-300 z-50`;
                 }, 5000);
@@ -171,6 +210,7 @@
                     });
 
                     // Start the bootloader and get chip info
+                    // This is the core handshake process.
                     await esploader.connect();
                     
                     // The connection was successful, so we update the UI
@@ -189,8 +229,9 @@
                     esploader = null;
                     port = null;
                     updateUIForConnection(false);
-                    log(`Connection failed: ${error.message}. Please ensure your device is in bootloader mode and the drivers are installed.`);
-                    showMessage(`Connection failed: ${error.message}.`);
+                    const errorMessage = `Connection failed: ${error.message}. Please ensure the device is in bootloader mode, the USB cable is a data cable, and the correct drivers are installed.`;
+                    log(errorMessage);
+                    showMessage(errorMessage);
                 }
             });
             
@@ -221,9 +262,12 @@
                     return;
                 }
 
+                // Disable all buttons to prevent user interference during the flash process
+                connectButton.disabled = true;
                 flashButton.disabled = true;
                 resetButton.disabled = true;
                 disconnectButton.disabled = true;
+
                 statusMessage.textContent = 'Flashing firmware...';
                 log(`Starting to flash firmware: ${file.name}`);
                 
@@ -247,10 +291,10 @@
                         );
                         
                         log('Firmware flashing complete!');
-                        statusMessage.textContent = 'Flashing successful! Please reset your device manually.';
+                        statusMessage.textContent = 'Flashing successful! Please click "Reset Device" to run the new firmware.';
                         showMessage('Firmware flashing complete!', 'success');
                         
-                        // Reset the progress bar for the next use
+                        // Re-enable buttons after a successful flash
                         progressBar.style.width = '0%';
                         flashButton.disabled = false;
                         resetButton.disabled = false;
@@ -261,6 +305,8 @@
                 } catch (error) {
                     log(`Flashing failed: ${error.message}`);
                     showMessage(`Flashing failed: ${error.message}`);
+                    
+                    // Re-enable buttons after a failed flash
                     flashButton.disabled = false;
                     resetButton.disabled = false;
                     disconnectButton.disabled = false;
