@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Web Flasher (Minimal)</title>
+    <title>ESP32 Web Flasher</title>
     <!-- Use Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -13,10 +13,9 @@
             font-family: 'Inter', sans-serif;
             transition: background-color 0.3s ease;
         }
-
         /* Custom styles for the terminal-like output */
         .terminal {
-            background-color: #111827; /* Darker gray background */
+            background-color: #0d121c; /* A very dark, console-like background */
             color: #d1d5db; /* Light gray text */
             font-family: monospace;
             white-space: pre-wrap;
@@ -67,35 +66,38 @@
         #firmware-file {
             display: none;
         }
-        
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out forwards;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
     <div class="bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-2xl border border-gray-700">
         <h1 class="text-3xl font-bold mb-2 text-center text-indigo-400">ESP Web Flasher</h1>
         <p class="text-sm text-center text-gray-400 mb-6">
-            A simple, one-shot tool for flashing ESP32 firmware.
+            A simple and robust tool for flashing ESP32 firmware.
         </p>
 
         <!-- Instructions for Bootloader Mode -->
         <div class="bg-gray-700 p-4 rounded-lg mb-6 text-sm text-gray-300">
             <h3 class="font-bold text-gray-100 mb-2">Instructions:</h3>
             <ol class="list-decimal list-inside space-y-1">
-                <li>**Step 1:** Connect your ESP32 board and put it in bootloader mode (press and hold **BOOT**, then press and release **RESET**, then release **BOOT**).</li>
-                <li>**Step 2:** Select your firmware file below.</li>
-                <li>**Step 3:** Click the "Connect and Flash" button.</li>
+                <li>**Step 1:** Connect your ESP32 board and put it into bootloader mode.</li>
+                <li>**Step 2:** Click the "Connect to Device" button.</li>
+                <li>**Step 3:** Select your firmware file below.</li>
+                <li>**Step 4:** Click the "Flash Firmware" button.</li>
             </ol>
         </div>
 
-        <!-- File Input and Flash Button -->
+        <!-- Connection and Control Buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+            <button id="connect-button" 
+                    class="w-full sm:w-auto btn-primary py-3 px-6 rounded-lg font-bold">
+                Connect to Device
+            </button>
+            <button id="disconnect-button" disabled
+                    class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                Disconnect
+            </button>
+        </div>
+
         <div class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
             <label for="firmware-file" class="file-label w-full sm:w-auto text-center">
                 <span id="file-label-text">Select Firmware (.bin)</span>
@@ -104,14 +106,14 @@
             
             <button id="flash-button" disabled
                     class="w-full sm:w-auto btn-primary py-3 px-6 rounded-lg font-bold">
-                Connect and Flash
+                Flash Firmware
             </button>
         </div>
         
         <!-- Progress Bar and Status -->
         <div class="mb-6">
             <div id="status-message" class="text-center text-sm font-semibold text-gray-400 mb-2">
-                Waiting for firmware file selection...
+                Waiting for device connection...
             </div>
             <div class="w-full bg-gray-700 rounded-full h-2.5">
                 <div id="progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
@@ -120,7 +122,7 @@
 
         <!-- Log Output Terminal -->
         <div class="terminal">
-            <p>Waiting for firmware file...</p>
+            <p>Welcome! Click "Connect to Device" to begin.</p>
         </div>
     </div>
     
@@ -133,123 +135,190 @@
     <script type="module">
         import { ESPLoader } from 'https://unpkg.com/esptool-js@0.5.6/bundle.js';
 
-        // Get all the DOM elements
-        const flashButton = document.getElementById('flash-button');
-        const fileInput = document.getElementById('firmware-file');
-        const fileLabelText = document.getElementById('file-label-text');
-        const progressBar = document.getElementById('progress-bar');
-        const statusMessage = document.getElementById('status-message');
-        const terminal = document.querySelector('.terminal');
-        const messageBox = document.getElementById('message-box');
-        const messageText = document.getElementById('message-text');
-        
-        let file = null;
+        // A class to encapsulate all the flashing logic and state
+        class ESPWebFlasher {
+            constructor() {
+                // Get all the DOM elements
+                this.connectButton = document.getElementById('connect-button');
+                this.disconnectButton = document.getElementById('disconnect-button');
+                this.flashButton = document.getElementById('flash-button');
+                this.fileInput = document.getElementById('firmware-file');
+                this.fileLabelText = document.getElementById('file-label-text');
+                this.progressBar = document.getElementById('progress-bar');
+                this.statusMessage = document.getElementById('status-message');
+                this.terminal = document.querySelector('.terminal');
+                this.messageBox = document.getElementById('message-box');
+                this.messageText = document.getElementById('message-text');
 
-        // Function to display messages in the terminal log
-        const log = (message, type = 'info') => {
-            const p = document.createElement('p');
-            p.textContent = `> ${message}`;
-            if (type === 'error') {
-                p.classList.add('text-red-400');
-            } else if (type === 'success') {
-                p.classList.add('text-green-400');
-            }
-            terminal.appendChild(p);
-            terminal.scrollTop = terminal.scrollHeight; // Auto-scroll to the bottom
-        };
+                this.port = null;
+                this.esploader = null;
+                this.file = null;
+                this.isConnected = false;
 
-        // Function to show a temporary message box instead of alert()
-        const showMessage = (text, type = 'error') => {
-            messageText.textContent = text;
-            const newClass = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
-            messageBox.className = newClass;
-            setTimeout(() => {
-                messageBox.className = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-0 transition-transform duration-300 z-50`;
-            }, 5000);
-        };
-        
-        // Handle file selection
-        fileInput.addEventListener('change', (e) => {
-            file = e.target.files[0];
-            if (file) {
-                fileLabelText.textContent = file.name;
-                flashButton.disabled = false;
-                statusMessage.textContent = `Firmware file selected: ${file.name}.`;
-                log(`Firmware file selected: ${file.name}`);
-            }
-        });
+                // Bind event listeners
+                this.connectButton.addEventListener('click', () => this.connect());
+                this.disconnectButton.addEventListener('click', () => this.disconnect());
+                this.flashButton.addEventListener('click', () => this.flash());
+                this.fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
 
-        // The main flashing logic
-        flashButton.addEventListener('click', async () => {
-            if (!file) {
-                showMessage('Please select a firmware file first.');
-                return;
+                this.updateUI();
             }
 
-            flashButton.disabled = true;
-            statusMessage.textContent = 'Connecting to device...';
-            log('Starting flash process...');
-            log('Attempting to connect via Web Serial. A browser dialog will appear.');
+            // Log messages to the terminal
+            log(message, type = 'info') {
+                const p = document.createElement('p');
+                p.textContent = `> ${message}`;
+                if (type === 'error') p.classList.add('text-red-400');
+                if (type === 'success') p.classList.add('text-green-400');
+                this.terminal.appendChild(p);
+                this.terminal.scrollTop = this.terminal.scrollHeight;
+            }
+
+            // Show a temporary message box
+            showMessage(text, type = 'error') {
+                this.messageText.textContent = text;
+                const newClass = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-100 transition-transform duration-300 z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+                this.messageBox.className = newClass;
+                setTimeout(() => {
+                    this.messageBox.className = `fixed bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-lg shadow-lg transform scale-0 transition-transform duration-300 z-50`;
+                }, 5000);
+            }
+
+            // Update the UI state based on the flasher's state
+            updateUI() {
+                this.connectButton.disabled = this.isConnected;
+                this.disconnectButton.disabled = !this.isConnected;
+                this.flashButton.disabled = !this.isConnected || !this.file;
+                
+                if (this.isConnected) {
+                    this.statusMessage.textContent = `Connected to chip: ${this.esploader.chipName}. Select a firmware file to flash.`;
+                } else {
+                    this.statusMessage.textContent = 'Waiting for device connection...';
+                }
+            }
+
+            // Handle file selection
+            handleFileSelection(e) {
+                this.file = e.target.files[0];
+                if (this.file) {
+                    this.fileLabelText.textContent = this.file.name;
+                    this.log(`Firmware file selected: ${this.file.name}`);
+                    if (this.isConnected) {
+                        this.statusMessage.textContent = `Ready to flash: ${this.file.name}`;
+                        this.flashButton.disabled = false;
+                    }
+                }
+            }
             
-            try {
-                // Request the port and open it
-                const port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
+            // Connect to the ESP32 device
+            async connect() {
+                this.log('Attempting to connect to device...');
+                this.statusMessage.textContent = 'A browser dialog will appear. Please select your device.';
 
-                // Create the ESPLoader instance
-                const esploader = new ESPLoader(port, {
-                    log: (message) => log(message),
-                    error: (message) => log(message, 'error'),
-                    debug: (message) => { /* log(message, 'debug'); */ }
-                });
+                try {
+                    this.port = await navigator.serial.requestPort();
+                    await this.port.open({ baudRate: 115200 });
 
-                // Connect to the bootloader
-                log('Connecting to chip...');
-                await esploader.connect();
-                log(`Successfully connected to chip: ${esploader.chipName}`);
+                    this.esploader = new ESPLoader(this.port, {
+                        log: (message) => this.log(message),
+                        error: (message) => this.log(message, 'error'),
+                        debug: (message) => { /* this.log(message, 'debug'); */ }
+                    });
 
-                // Read the file data
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const fileData = e.target.result;
-                    
-                    log(`Flashing firmware...`);
-                    
-                    // Flash the binary file
-                    await esploader.flash_binary(fileData, 0x10000, 
-                        (progress, total) => {
-                            const percent = Math.round((progress / total) * 100);
-                            progressBar.style.width = `${percent}%`;
-                            statusMessage.textContent = `Flashing: ${percent}% complete...`;
-                        },
-                        (message) => {
-                            log(message);
+                    this.log('Connecting to chip...');
+                    await this.esploader.connect();
+                    this.log(`Successfully connected to chip: ${this.esploader.chipName}`, 'success');
+                    this.isConnected = true;
+                } catch (error) {
+                    this.log(`Connection failed: ${error.message}`, 'error');
+                    this.showMessage(`Connection failed: ${error.message}. Please follow the instructions and try again.`);
+                    this.esploader = null;
+                    if (this.port) {
+                        try {
+                            await this.port.close();
+                        } catch (closeError) {
+                            this.log(`Failed to close port: ${closeError.message}`);
                         }
-                    );
-                    
-                    log('Firmware flashing complete!', 'success');
-                    statusMessage.textContent = 'Flashing successful! Device is now resetting.';
-                    showMessage('Flashing successful!', 'success');
-                    
-                    // Disconnect and reset the device
-                    log('Disconnecting and resetting the device...');
-                    await esploader.hard_reset();
-                    await esploader.disconnect();
-                    
-                    // Reset UI
-                    flashButton.disabled = false;
-                    fileLabelText.textContent = 'Select Firmware (.bin)';
-                    progressBar.style.width = '0%';
-                };
-                reader.readAsArrayBuffer(file);
-
-            } catch (error) {
-                const errorMessage = `An error occurred: ${error.message}. Please check your instructions and try again.`;
-                log(errorMessage, 'error');
-                showMessage(errorMessage);
-                flashButton.disabled = false;
-                progressBar.style.width = '0%';
+                    }
+                } finally {
+                    this.updateUI();
+                }
             }
+            
+            // Disconnect from the device
+            async disconnect() {
+                if (this.esploader) {
+                    await this.esploader.hard_reset();
+                    await this.esploader.disconnect();
+                    this.esploader = null;
+                    this.port = null;
+                }
+                this.isConnected = false;
+                this.updateUI();
+                this.log('Disconnected from device.');
+                this.statusMessage.textContent = 'Disconnected. Click "Connect to Device" to re-establish a connection.';
+            }
+
+            // Flash the selected firmware
+            async flash() {
+                if (!this.isConnected || !this.file) {
+                    this.showMessage('Please connect to a device and select a firmware file.');
+                    return;
+                }
+
+                // Temporarily disable buttons
+                this.connectButton.disabled = true;
+                this.flashButton.disabled = true;
+                this.disconnectButton.disabled = true;
+
+                this.statusMessage.textContent = 'Flashing firmware...';
+                this.log(`Starting to flash firmware: ${this.file.name}`);
+
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const fileData = e.target.result;
+                        
+                        await this.esploader.flash_binary(fileData, 0x10000, 
+                            (progress, total) => {
+                                const percent = Math.round((progress / total) * 100);
+                                this.progressBar.style.width = `${percent}%`;
+                                this.statusMessage.textContent = `Flashing: ${percent}% complete...`;
+                            },
+                            (message) => {
+                                this.log(message);
+                            }
+                        );
+                        
+                        this.log('Firmware flashing complete!', 'success');
+                        this.statusMessage.textContent = 'Flashing successful! Device is now resetting.';
+                        this.showMessage('Flashing successful!', 'success');
+                        
+                        // Final reset and disconnect
+                        await this.esploader.hard_reset();
+                        await this.esploader.disconnect();
+                        
+                        // Reset UI
+                        this.isConnected = false;
+                        this.file = null;
+                        this.fileLabelText.textContent = 'Select Firmware (.bin)';
+                        this.progressBar.style.width = '0%';
+                        this.updateUI();
+                    };
+                    reader.readAsArrayBuffer(this.file);
+
+                } catch (error) {
+                    this.log(`Flashing failed: ${error.message}`, 'error');
+                    this.showMessage(`Flashing failed: ${error.message}`);
+                    this.updateUI();
+                    this.progressBar.style.width = '0%';
+                }
+            }
+        }
+        
+        // Initialize the flasher when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ESPWebFlasher();
         });
     </script>
 </body>
