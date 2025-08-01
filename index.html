@@ -1,4 +1,4 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (Fully fixed, self-contained version) -->
+<!-- Web Serial Firmware Flasher for ESP32-S3 (Fully fixed version with working WebSerial + Transport) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,9 +7,9 @@
   <title>ESP32-S3 Firmware Flasher</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
-    import * as esptool from 'https://cdn.jsdelivr.net/npm/esptool-js@0.3.0/+esm';
+    import { ESPLoader } from 'https://unpkg.com/esptool-js@0.4.1/dist/web/index.js';
 
-    window.esptool = esptool;
+    window.ESPLoader = ESPLoader;
   </script>
 </head>
 <body class="bg-black text-white font-sans flex items-center justify-center h-screen">
@@ -40,8 +40,11 @@
         const port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
 
-        const transport = new window.esptool.Transport.WebSerial(port);
-        loader = new window.esptool.ESPLoader(transport, false);
+        loader = new window.ESPLoader({
+          transport: port,
+          baudrate: 115200,
+          debug: true,
+        });
 
         log('Connected to serial port');
         await loader.initialize();
@@ -62,7 +65,7 @@
         const fwData = new Uint8Array(fwArrayBuffer);
         log('Firmware loaded');
 
-        await loader.flashData([[0x1000, fwData]]);
+        await loader.flash([{ data: fwData, address: 0x1000 }]);
         log('Flashing complete!');
       } catch (err) {
         log('Flashing failed: ' + err.message, false);
