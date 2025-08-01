@@ -1,70 +1,48 @@
-<!-- Web Serial Firmware Flasher for ESP32-S3 (FINAL FIX: Fully working with Transport & ESPLoader) -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32-S3 Firmware Flasher</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-black text-white font-sans flex items-center justify-center h-screen">
-  <div class="max-w-xl w-full p-6 bg-gray-900 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-4">ESP32-S3 Firmware Flasher</h1>
-    <p class="mb-4">Firmware: <code>firmware_v1.2.3.bin</code></p>
-    <div class="flex gap-4 mb-4">
-      <button id="connect-btn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Connect</button>
-      <button id="flash-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" disabled>Flash Firmware</button>
-    </div>
-    <div id="log" class="bg-black border border-gray-700 p-3 rounded h-60 overflow-y-scroll text-sm font-mono"></div>
-  </div>
+<script type="module">
+  import ESPLoader from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/index.js';
+  import WebSerialTransport from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/transport/webserial.js';
 
-  <script type="module">
-    import { ESPLoader } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/index.js';
-    import { Transport } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.4.1/dist/web/transport/webserial.js';
+  let loader;
 
-    let loader;
+  function log(msg, success = true) {
+    const logEl = document.getElementById('log');
+    const p = document.createElement('p');
+    p.textContent = msg;
+    p.className = success ? 'text-green-400' : 'text-red-400';
+    logEl.appendChild(p);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
 
-    function log(msg, success = true) {
-      const logEl = document.getElementById('log');
-      const p = document.createElement('p');
-      p.textContent = msg;
-      p.className = success ? 'text-green-400' : 'text-red-400';
-      logEl.appendChild(p);
-      logEl.scrollTop = logEl.scrollHeight;
+  document.getElementById('connect-btn').addEventListener('click', async () => {
+    try {
+      const port = await navigator.serial.requestPort();
+      const transport = new WebSerialTransport(port);
+      loader = new ESPLoader(transport, false);
+
+      log('Connecting...');
+      await loader.initialize();
+      const chip = await loader.chipName();
+      log(`Connected to chip: ${chip}`);
+
+      document.getElementById('flash-btn').disabled = false;
+    } catch (err) {
+      log('Error connecting: ' + err.message, false);
     }
+  });
 
-    document.getElementById('connect-btn').addEventListener('click', async () => {
-      try {
-        const port = await navigator.serial.requestPort();
-        const transport = new Transport(port);
-        loader = new ESPLoader(transport, false);
+  document.getElementById('flash-btn').addEventListener('click', async () => {
+    try {
+      const response = await fetch('firmware_v1.2.3.bin');
+      if (!response.ok) throw new Error('Failed to fetch firmware');
 
-        log('Connecting...');
-        await loader.initialize();
-        const chip = await loader.chipName();
-        log(`Connected to chip: ${chip}`);
+      const fwArrayBuffer = await response.arrayBuffer();
+      const fwData = new Uint8Array(fwArrayBuffer);
+      log('Firmware loaded');
 
-        document.getElementById('flash-btn').disabled = false;
-      } catch (err) {
-        log('Error connecting: ' + err.message, false);
-      }
-    });
-
-    document.getElementById('flash-btn').addEventListener('click', async () => {
-      try {
-        const response = await fetch('firmware_v1.2.3.bin');
-        if (!response.ok) throw new Error('Failed to fetch firmware');
-
-        const fwArrayBuffer = await response.arrayBuffer();
-        const fwData = new Uint8Array(fwArrayBuffer);
-        log('Firmware loaded');
-
-        await loader.flash([{ data: fwData, address: 0x1000 }]);
-        log('Flashing complete!');
-      } catch (err) {
-        log('Flashing failed: ' + err.message, false);
-      }
-    });
-  </script>
-</body>
-</html>
+      await loader.flash([{ data: fwData, address: 0x1000 }]);
+      log('Flashing complete!');
+    } catch (err) {
+      log('Flashing failed: ' + err.message, false);
+    }
+  });
+</script>
