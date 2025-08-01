@@ -83,7 +83,7 @@
         <p id="message-text">Error message here.</p>
     </div>
 
-    <!-- The main application script, now loaded as a module -->
+    <!-- The main application script, now with more robust error handling -->
     <script type="module">
         // Import ESPLoader from the unpkg CDN, which is an ES Module
         import { ESPLoader } from 'https://unpkg.com/esptool-js@0.5.6/bundle.js';
@@ -143,29 +143,30 @@
                     esploader = new ESPLoader(port, {
                         log: (message) => {
                             log(message);
-                            // Also update status message with key parts of the log
-                            if (message.includes('Chip is')) {
-                                statusMessage.textContent = `Connected! ${message}`;
-                            } else if (message.includes('Connecting')) {
-                                statusMessage.textContent = 'Connecting...';
-                            }
                         },
                         error: (message) => {
                             log(`ERROR: ${message}`);
-                            showMessage(message);
                         },
                         debug: (message) => { /* log(`DEBUG: ${message}`); */ }
                     });
 
-                    // Start the bootloader
-                    await esploader.connect();
+                    // Start the bootloader and get chip info
+                    const chip = await esploader.connect();
                     
+                    // The connection was successful, so we update the UI
                     connectButton.textContent = 'Disconnect';
                     flashButton.disabled = false;
-                    statusMessage.textContent = 'Connected. Please choose a firmware file.';
+                    statusMessage.textContent = `Connected to chip: ${chip}. Please choose a firmware file.`;
+                    log(`Successfully connected to chip: ${chip}.`);
+
                 } catch (error) {
-                    log(`Connection error: ${error.message}`);
-                    showMessage(`Connection failed: ${error.message}`);
+                    // If an error occurs during connection, we reset the esploader object
+                    // and provide a clear error message.
+                    esploader = null;
+                    connectButton.textContent = 'Connect to Device';
+                    flashButton.disabled = true;
+                    log(`Connection failed: ${error.message}. Please ensure your device is in bootloader mode and the drivers are installed.`);
+                    showMessage(`Connection failed: ${error.message}.`);
                 }
             });
 
@@ -175,7 +176,7 @@
                 if (file) {
                     log(`Firmware file selected: ${file.name}`);
                     statusMessage.textContent = `Ready to flash: ${file.name}`;
-                    flashButton.disabled = false; // Enable flash button once a file is selected
+                    flashButton.disabled = !esploader; // Enable flash button only if connected
                 }
             });
 
@@ -202,6 +203,7 @@
                                 // Update progress bar
                                 const percent = Math.round((progress / total) * 100);
                                 progressBar.style.width = `${percent}%`;
+                                statusMessage.textContent = `Flashing: ${percent}% complete...`;
                             },
                             (message) => {
                                 log(message);
